@@ -259,22 +259,19 @@ pre-commit run -a
 
 ```
 GameReviewRatio/
-├── src/
-│   ├── gamereviewratio/
-│   │   └── pipelines/
-│   │       └── evaluation/
-│   └── api/
 │
 ├── conf/
-│   └── base/
-│       ├── catalog.yml
-│       └── parameters.yml
+│   ├── base/
+│   │   ├── catalog.yml
+│   │   └── parameters.yml
+│   └── local/
 │
 ├── data/
 │   ├── 01_raw/
 │   ├── 02_interim/
 │   ├── 03_processed/
 │   ├── 06_models/
+│   │   ├── AutogluonModels/
 │   │   ├── ag_model.pkl
 │   │   ├── baseline_model.pkl
 │   │   ├── production_model.pkl
@@ -289,10 +286,24 @@ GameReviewRatio/
 ├── images/
 │   └── kedro-pipeline.svg
 │
-├── tests/
+├── src/
+│   ├── api/
+│       └── main.py
+│   └── gamereviewratio/
+│       └── pipelines/
+│           └── evaluation/
+│               ├── nodes.py
+│               └── pipeline.py
 │
-├── predictions.db
+├── tests/
+│   └── pipelines/
+│       └── evaluation/
+│
+├── .gitignore
+├── .pre-commit-config.yaml
+├── .telemetry
 ├── environment.yml
+├── predictions.db
 ├── pyproject.toml
 └── README.md
 ```
@@ -324,8 +335,7 @@ Przykład zawartości:
   "languages_en",
   "platform_windows",
   "tag_multiplayer",
-  "genre_action",
-  ...
+  "genre_action"
 ]
 ```
 
