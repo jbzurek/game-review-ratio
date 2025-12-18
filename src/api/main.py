@@ -13,20 +13,20 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
-    # ustawia ścieżkę do modelu
+    # ścieżka do modelu
     MODEL_PATH: str = "data/06_models/production_model.pkl"
-    # ustawia ścieżkę do wymaganych kolumn
+
+    # ścieżka do wymaganych kolumn
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
 
-    # ustawia url do bazy
+    # URL do bazy danych
     DATABASE_URL: str = "sqlite+aiosqlite:///./predictions.db"
 
-    # ustawia wersję modelu
+    # wersja modelu (opcjonalna, fallback: hash pliku)
     MODEL_VERSION: str | None = None
 
-    # ustawia klucz do wandb
+    # klucz do Weights & Biases (opcjonalny)
     WANDB_API_KEY: str | None = None
 
     class Config:

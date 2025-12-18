@@ -222,6 +222,54 @@ uvicorn src.api.main:app --reload --port 8000
 
 # **API (FASTAPI)**
 
+## Quickstart: uruchomienie API
+
+1. Uruchom serwis (w katalogu repozytorium):
+
+```
+uvicorn src.api.main:app --reload --port 8000
+```
+
+2. Sprawdź końcówke /healthz (GET /healthz):
+
+```
+curl http://127.0.0.1:8000/healthz
+# oczekiwany wynik: {"status": "ok"}
+```
+
+3. Przykładowa predykcja (POST /predict)
+
+```
+curl.exe --% -X POST "http://127.0.0.1:8000/predict" -H "Content-Type: application/json" -d "{\"data\":{\"appid\":12345,\"price\":0.0,\"user_score\":7.5}}"
+
+albo
+
+Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
+  -Method POST `
+  -Headers @{ 'Content-Type' = 'application/json' } `
+  -Body '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
+
+```
+## Jak podejrzeć zapisaną bazę (SQLite)
+
+- jeśli masz narzędzie `sqlite3`:
+
+```
+sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
+```
+- albo za pomocą Pythona (jednolinijkowiec):
+
+```
+sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
+```
+
+## Konfiguracja (zmienne środowiskowe)
+
+Plik `.env.example` skopiuj go do `.env` :
+
+```
+cp .env.example .env
+```
 ---
 
 # **UI (STREAMLIT)**
