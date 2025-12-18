@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import random
 import time
 from pathlib import Path
@@ -89,7 +90,7 @@ def basic_clean(df: pd.DataFrame, clean: Dict[str, Any], target: str) -> pd.Data
         if col not in df.columns:
             continue
         series = df[col].apply(_parse_list_cell)
-        counts = {}
+        counts: Dict[str, int] = {}
         for lst in series.dropna():
             for lab in lst:
                 counts[lab] = counts.get(lab, 0) + 1
@@ -142,7 +143,7 @@ def split_data(
     )
 
 
-# trenuje model baseline random forest i zapisuje go do pliku
+# trenuje model baseline random forest i zapisuje go do pliku baseline_model.pkl
 def train_baseline(
     x_train: pd.DataFrame, y_train: pd.Series | pd.DataFrame, model: dict
 ) -> RandomForestRegressor:
@@ -163,7 +164,7 @@ def train_baseline(
     mdl.fit(x_train, y_train)
     train_time_s = time.time() - start
 
-    path = Path("data/06_models/model_baseline.pkl")
+    path = Path("data/06_models/baseline_model.pkl")
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(mdl, path)
 
@@ -183,7 +184,7 @@ def train_baseline(
 
 
 # liczy metryki dla modelu baseline i loguje do wandb
-def evaluate(
+def evaluate_baseline(
     mdl: RandomForestRegressor, x_test: pd.DataFrame, y_test: pd.DataFrame | pd.Series
 ) -> dict:
     if isinstance(y_test, pd.DataFrame):
@@ -214,7 +215,7 @@ def evaluate(
     return metrics
 
 
-# trenuje model autogluon tabular i zapisuje go jako pickle
+# trenuje model autogluon tabular i zapisuje go jako ag_model.pkl
 def train_autogluon(
     x_train: pd.DataFrame,
     y_train: pd.DataFrame | pd.Series,
@@ -238,6 +239,15 @@ def train_autogluon(
     train_df = x_train.copy()
     train_df[label] = pd.to_numeric(y_series, errors="coerce")
     train_df = train_df.dropna(subset=[label])
+
+    try:
+        req_cols_path = Path("data/06_models/required_columns.json")
+        req_cols_path.parent.mkdir(parents=True, exist_ok=True)
+        cols_list = list((train_df.drop(columns=[label]).columns))
+        with open(req_cols_path, "w", encoding="utf-8") as f:
+            json.dump({"columns": cols_list}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
     random.seed(random_state)
     np.random.seed(random_state)
@@ -275,7 +285,7 @@ def train_autogluon(
 
     train_time_s = time.time() - start
 
-    pkl_path = Path("data/06_models/ag_production.pkl")
+    pkl_path = Path("data/06_models/ag_model.pkl")
     pkl_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(predictor, pkl_path)
 
@@ -352,12 +362,12 @@ def choose_best_model(ag_metrics: dict, baseline_metrics: dict) -> str:
         return "baseline_model"
 
 
-# zapisuje lepszy model
+# zapisuje lepszy model jako production_model.pkl
 def save_production_model(best_model_name: str) -> str:
     if best_model_name == "ag_model":
-        src = Path("data/06_models/ag_production.pkl")
+        src = Path("data/06_models/ag_model.pkl")
     elif best_model_name == "baseline_model":
-        src = Path("data/06_models/model_baseline.pkl")
+        src = Path("data/06_models/baseline_model.pkl")
     else:
         raise ValueError(f"Nieznana nazwa najlepszego modelu: {best_model_name!r}")
 

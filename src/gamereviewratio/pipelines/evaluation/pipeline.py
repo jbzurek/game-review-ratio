@@ -1,16 +1,17 @@
 from kedro.pipeline import Pipeline, node
+
 from .nodes import (
-    load_raw,  # wczytuje surowe dane
     basic_clean,  # czyści i przygotowuje cechy
-    split_data,  # dzieli dane na train i test
-    train_baseline,  # trenuje baseline random forest
-    evaluate,  # ewaluacja baseline
-    train_autogluon,  # trenuje autogluon tabular
-    evaluate_autogluon,  # ewaluacja autogluon
     choose_best_model,  # wybiera lepszy model
-    log_ag_metrics,  # zapisuje metryki ag
+    evaluate_autogluon,  # ewaluacja autogluon
+    evaluate_baseline,  # ewaluacja baseline
+    load_raw,  # wczytuje surowe dane
+    log_ag_metrics,  # zapisuje metryki autogluon
     log_baseline_metrics,  # zapisuje metryki baseline
-    save_production_model,  # zapisuje production model
+    save_production_model,  # zapisuje model produkcyjny
+    split_data,  # dzieli dane na train i test
+    train_autogluon,  # trenuje autogluon
+    train_baseline,  # trenuje baseline
 )
 
 
@@ -18,6 +19,7 @@ from .nodes import (
 def create_pipeline() -> Pipeline:
     return Pipeline(
         [
+            # przygotowuje dane
             node(load_raw, "raw_data", "raw_df", name="load_raw"),
             node(
                 basic_clean,
@@ -31,6 +33,26 @@ def create_pipeline() -> Pipeline:
                 ["x_train", "x_test", "y_train", "y_test"],
                 name="split_data",
             ),
+            # trenuje i ocenia baseline
+            node(
+                train_baseline,
+                ["x_train", "y_train", "params:model"],
+                "baseline_model",
+                name="train_baseline",
+            ),
+            node(
+                evaluate_baseline,
+                ["baseline_model", "x_test", "y_test"],
+                "baseline_metrics_local",
+                name="evaluate_baseline",
+            ),
+            node(
+                log_baseline_metrics,
+                "baseline_metrics_local",
+                "baseline_metrics",
+                name="log_baseline_metrics",
+            ),
+            # trenuje i ocenia autogluon
             node(
                 train_autogluon,
                 ["x_train", "y_train", "params:autogluon"],
@@ -44,29 +66,15 @@ def create_pipeline() -> Pipeline:
                 name="evaluate_autogluon",
             ),
             node(
-                log_ag_metrics, "ag_metrics_local", "ag_metrics", name="log_ag_metrics"
+                log_ag_metrics,
+                "ag_metrics_local",
+                "ag_metrics",
+                name="log_ag_metrics",
             ),
-            node(
-                train_baseline,
-                ["x_train", "y_train", "params:model"],
-                "baseline_model",
-                name="train_baseline",
-            ),
-            node(
-                evaluate,
-                ["baseline_model", "x_test", "y_test"],
-                "metrics_baseline_local",
-                name="evaluate",
-            ),
-            node(
-                log_baseline_metrics,
-                "metrics_baseline_local",
-                "metrics_baseline",
-                name="log_baseline_metrics",
-            ),
+            # wybiera i zapisuje najlepszy model
             node(
                 choose_best_model,
-                ["ag_metrics_local", "metrics_baseline_local"],
+                ["ag_metrics_local", "baseline_metrics_local"],
                 "best_model_name",
                 name="choose_best_model",
             ),

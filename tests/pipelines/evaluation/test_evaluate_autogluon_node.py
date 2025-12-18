@@ -40,7 +40,7 @@ def test_train_baseline_creates_model_directory(tmp_path, monkeypatch):
     train_baseline(x_train, y_train, params)
 
     models_dir = Path("data/06_models")
-    model_file = models_dir / "model_baseline.pkl"
+    model_file = models_dir / "baseline_model.pkl"
 
     assert models_dir.exists(), "katalog data/06_models powinien zostać utworzony"
-    assert model_file.exists(), "plik model_baseline.pkl powinien zostać zapisany"
+    assert model_file.exists(), "plik baseline_model.pkl powinien zostać zapisany"

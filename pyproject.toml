@@ -27,6 +27,16 @@ dev = [
   "kedro-viz",
 ]
 
+api = [
+  "fastapi",
+  "uvicorn",
+  "databases",
+  "asyncpg",
+  "aiosqlite",
+  "pydantic-settings",
+  "httpx",
+]
+
 [project.scripts]
 gamereviewratio = "gamereviewratio.__main__:main"
 

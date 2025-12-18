@@ -8,24 +8,32 @@ dependencies:
   - python=3.11
   - ipykernel
   - jupyterlab
-  - matplotlib
   - numpy
   - pandas
   - pyarrow
-  - scikit-learn
+  - matplotlib
   - seaborn
+  - scikit-learn
   - pandera
   - joblib
+  - fastapi
+  - uvicorn
+  - databases
+  - pydantic
+  - pydantic-settings
+  - asyncpg
+  - aiosqlite
   - pip
 
   - pip:
       - autogluon==1.4.0
-      - black
       - kedro
       - kedro-datasets[pandas]
       - kedro-datasets[tracking]==2.*
       - kedro-viz
-      - pre-commit
-      - pytest
-      - ruff
       - wandb
+      - pre-commit
+      - black
+      - ruff
+      - pytest
+      - httpx

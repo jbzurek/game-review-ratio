@@ -3,13 +3,21 @@
 # Documentation for this file format can be found in "The Data Catalog"
 # Link: https://docs.kedro.org/en/stable/data/data_catalog.html
 
-# surowy csv z danymi wejściowymi
+# surowy csv z danymi wejściowymi - sample_100
 raw_data:
   type: kedro_datasets.pandas.CSVDataset
   filepath: data/01_raw/sample_100.csv
   load_args:
     encoding: utf-8
     low_memory: false
+
+# surowy csv z danymi wejściowymi - games_first_5000
+#raw_data:
+#  type: kedro_datasets.pandas.CSVDataset
+#  filepath: data/01_raw/games_first_5000.csv
+#  load_args:
+#    encoding: utf-8
+#    low_memory: false
 
 # oczyszczony dataframe w formacie parquet
 clean_df:
@@ -41,28 +49,28 @@ y_test:
 # model baseline jako pickle
 baseline_model:
   type: kedro_datasets.pickle.PickleDataset
-  filepath: data/06_models/model_baseline.pkl
+  filepath: data/06_models/baseline_model.pkl
 
-# model autogluon
+# model autogluon jako pickle
 ag_model:
   type: kedro_datasets.pickle.PickleDataset
-  filepath: data/06_models/ag_production.pkl
+  filepath: data/06_models/ag_model.pkl
+
+# metryki baseline
+baseline_metrics:
+  type: kedro_datasets.tracking.MetricsDataset
+  filepath: data/09_tracking/baseline_metrics.json
 
 # metryki autogluon
 ag_metrics:
   type: kedro_datasets.tracking.MetricsDataset
   filepath: data/09_tracking/ag_metrics.json
 
-# metryki baseline
-metrics_baseline:
-  type: kedro_datasets.tracking.MetricsDataset
-  filepath: data/09_tracking/metrics_baseline.json
-
 # lokalne datasety w pamięci
-ag_metrics_local:
+baseline_metrics_local:
   type: MemoryDataset
 
-metrics_baseline_local:
+ag_metrics_local:
   type: MemoryDataset
 
 # nazwa najlepszego modelu trzymana w pamięci
