@@ -36,3 +36,4 @@ dependencies:
       - black
       - ruff
       - pytest
+      - httpx
