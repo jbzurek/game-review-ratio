@@ -1,8 +1,10 @@
 import datetime as dt
+import hashlib
 import json
 import os
 from contextlib import asynccontextmanager
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Union
 
 import joblib
 import pandas as pd
@@ -12,16 +14,20 @@ from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 
 
-# konfiguracja
 class Settings(BaseSettings):
-    # ścieżka do pliku modelu produkcyjnego
+    # ustawia ścieżkę do modelu
     MODEL_PATH: str = "data/06_models/production_model.pkl"
-    # ścieżka do pliku z wymaganymi kolumnami
+    # ustawia ścieżkę do wymaganych kolumn
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
-    # url do bazy danych
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/asi_baza"
-    # wersja modelu
-    MODEL_VERSION: str = "local-dev"
+
+    # ustawia url do bazy
+    DATABASE_URL: str = "sqlite+aiosqlite:///./predictions.db"
+
+    # ustawia wersję modelu
+    MODEL_VERSION: str | None = None
+
+    # ustawia klucz do wandb
+    WANDB_API_KEY: str | None = None
 
     class Config:
         env_file = ".env"
@@ -30,126 +36,147 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# tworzy połączenie do bazy
 database = Database(settings.DATABASE_URL)
+
+# trzyma model w pamięci
 model = None
+
+# trzyma listę wymaganych kolumn
 required_columns: list[str] = []
 
 
+def _file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
+    # liczy sha256 pliku
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _resolve_model_version() -> str:
+    # bierze wersję z env albo liczy z pliku
+    if settings.MODEL_VERSION:
+        return settings.MODEL_VERSION
+    if os.path.isfile(settings.MODEL_PATH):
+        digest = _file_sha256(settings.MODEL_PATH)[:12]
+        name = Path(settings.MODEL_PATH).name
+        return f"{name}:{digest}"
+    return "unknown"
+
+
+# ustawia wersję modelu
+MODEL_VERSION = _resolve_model_version()
+
+
 class Features(BaseModel):
-    # wszystkie feature'y są int64
-    data: Dict[str, int]
+    # przyjmuje cechy jako słownik
+    data: Dict[str, Union[int, float]]
 
     @field_validator("data")
     @classmethod
-    def validate_required_columns(cls, v: Dict[str, int]) -> Dict[str, int]:
-        # sprawdzenie, czy są wszystkie wymagane kolumny
+    def validate_data(cls, v: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
+        # sprawdza pusty payload
+        if not v:
+            raise ValueError("payload data nie może być pusty")
+
+        # sprawdza obce kolumny (literówki)
         if required_columns:
-            missing = set(required_columns) - set(v.keys())
-            if missing:
-                raise ValueError(f"brak wymaganych kolumn w payload: {sorted(missing)}")
+            unknown = set(v.keys()) - set(required_columns)
+            if unknown:
+                raise ValueError(f"nieznane kolumny w payload: {sorted(unknown)}")
+
         return v
 
 
 class Prediction(BaseModel):
-    # odpowiedź api
+    # zwraca predykcję i wersję modelu
     prediction: float | str
     model_version: str
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # inicjalizacja modelu i bazy
-    global model, database, required_columns
+    global model, required_columns
 
-    # ładuje model, jeśli niezaładowany
+    # ładuje model raz
     if model is None:
         if not os.path.isfile(settings.MODEL_PATH):
             raise RuntimeError(f"nie znaleziono pliku modelu w '{settings.MODEL_PATH}'")
         model = joblib.load(settings.MODEL_PATH)
 
-    # wczytaj wymagane kolumny
+    # wczytuje wymagane kolumny
     if os.path.isfile(settings.REQUIRED_COLUMNS_PATH):
         try:
             with open(settings.REQUIRED_COLUMNS_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # wszystkie kolumny mają typ int64
-                required_columns = (
+                required_columns[:] = (
                     data["columns"]
                     if isinstance(data, dict) and "columns" in data
                     else list(data)
                 )
         except Exception:
-            required_columns = []
+            required_columns[:] = []
     else:
-        required_columns = []
+        required_columns[:] = []
 
-    # połącz z bazą; fallback do sqlite, jeśli postgres nie działa
-    try:
-        await database.connect()
-    except Exception:
-        # sqlite jako fallback
-        database = Database("sqlite+aiosqlite:///./predictions.db")
-        await database.connect()
-
+    await database.connect()
     await init_db()
+
     try:
         yield
     finally:
         await database.disconnect()
 
 
+# tworzy aplikację
 app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/healthz")
 async def healthz():
-    # endpoint healthcheck
+    # zwraca status
     return {"status": "ok"}
 
 
 @app.post("/predict", response_model=Prediction)
 async def predict(payload: Features):
-    # sprawdzenie, czy model jest gotowy
+    # sprawdza model
     if model is None:
-        raise HTTPException(
-            status_code=500,
-            detail="model nie został załadowany",
-        )
+        raise HTTPException(status_code=500, detail="model nie został załadowany")
 
-    # budowa dataframe z danych wejściowych
+    # buduje dataframe z payloadu
     x = pd.DataFrame([payload.data])
 
-    # dopasuj kolumny do modelu
+    # ustawia kolumny pod model
     if required_columns:
-        target_cols = list(required_columns)
-        x = x.reindex(columns=target_cols, fill_value=0)
+        x = x.reindex(columns=list(required_columns), fill_value=0)
 
-    # inferencja modelu
+    # robi predykcję
     try:
         pred = model.predict(x)[0]
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"inferencja nie powiodła się: {e}",
-        )
+        raise HTTPException(status_code=500, detail=f"inferencja nie powiodła się: {e}")
 
-    # rzutowanie predykcji
+    # rzutuje wynik
     try:
         pred_out: float | str = float(pred)
     except Exception:
         pred_out = str(pred)
 
-    # zapis do bazy (text dla sqlite, jsonb dla postgres)
-    await save_prediction(payload.data, pred_out, settings.MODEL_VERSION)
+    # zapisuje predykcję do bazy
+    await save_prediction(payload.data, pred_out, MODEL_VERSION)
 
-    return Prediction(
-        prediction=pred_out,
-        model_version=settings.MODEL_VERSION,
-    )
+    # zwraca odpowiedź
+    return Prediction(prediction=pred_out, model_version=MODEL_VERSION)
 
 
 async def init_db():
-    # rozpoznaje backend i tworzy tabelę
+    # wybiera schemat tabeli
     backend = database.url.scheme
 
     if backend.startswith("sqlite"):
@@ -158,7 +185,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts TEXT,
                 payload TEXT,
-                prediction TEXT,
+                prediction REAL,
                 model_version TEXT
             )
         """
@@ -168,11 +195,12 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 ts TIMESTAMP,
                 payload JSONB,
-                prediction TEXT,
+                prediction DOUBLE PRECISION,
                 model_version TEXT
             )
         """
 
+    # tworzy tabelę
     await database.execute(query=query)
 
 
@@ -193,12 +221,13 @@ async def save_prediction(
         VALUES (:ts, :payload, :pred, :ver)
     """
 
+    # zapisuje rekord
     await database.execute(
         query=query,
         values={
             "ts": ts_value,
             "payload": payload_value,
-            "pred": str(prediction),
+            "pred": float(prediction) if isinstance(prediction, (int, float)) else None,
             "ver": model_version,
         },
     )
