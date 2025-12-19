@@ -1,4 +1,4 @@
-from gamereviewratio.pipelines.evaluation.nodes import choose_best_model
+from src.gamereviewratio.pipelines.evaluation.nodes import choose_best_model
 
 
 # testuje czy wybierany jest model z niższym rmse
