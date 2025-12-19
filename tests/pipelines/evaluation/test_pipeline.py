@@ -1,4 +1,4 @@
-from gamereviewratio.pipelines.evaluation.pipeline import create_pipeline
+from src.gamereviewratio.pipelines.evaluation import create_pipeline
 
 
 # testuje czy pipeline evaluation buduje się poprawnie

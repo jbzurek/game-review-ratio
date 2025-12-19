@@ -1,5 +1,6 @@
 import pandas as pd
-from gamereviewratio.pipelines.evaluation.nodes import basic_clean, _parse_list_cell
+
+from src.gamereviewratio.pipelines.evaluation.nodes import _parse_list_cell, basic_clean
 
 
 # testuje parser list
