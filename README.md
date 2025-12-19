@@ -257,7 +257,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
 ```
 sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
 ```
-- albo za pomocą Pythona (jednolinijkowiec):
+- albo za pomocą Pythona:
 
 ```
 sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
