@@ -220,7 +220,7 @@ uvicorn src.api.main:app --reload --port 8000
 
 ---
 
-# **API (FASTAPI)**
+# **API (FastAPI)**
 
 ## Quickstart: uruchomienie API
 
@@ -230,42 +230,67 @@ uvicorn src.api.main:app --reload --port 8000
 uvicorn src.api.main:app --reload --port 8000
 ```
 
-2. Sprawdź końcówke /healthz (GET /healthz):
+2. Sprawdź endpoint zdrowia (`GET /healthz`):
 
 ```
-curl http://127.0.0.1:8000/healthz
-# oczekiwany wynik: {"status": "ok"}
+curl http://localhost:8000/healthz
+# oczekiwany wynik: {"status":"ok"}
 ```
 
-3. Przykładowa predykcja (POST /predict)
+3. Dokumentacja interaktywna:
 
 ```
-curl.exe --% -X POST "http://127.0.0.1:8000/predict" -H "Content-Type: application/json" -d "{\"data\":{\"appid\":12345,\"price\":0.0,\"user_score\":7.5}}"
+http://localhost:8000/docs
+```
 
-albo
+## Przykładowa predykcja (`POST /predict`)
 
-Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
+**curl (Linux/macOS/WSL):**
+
+```
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
+```
+
+**PowerShell (Windows):**
+
+```
+Invoke-RestMethod -Uri http://localhost:8000/predict `
   -Method POST `
-  -Headers @{ 'Content-Type' = 'application/json' } `
+  -Headers @{ "Content-Type" = "application/json" } `
   -Body '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
-
 ```
-## Jak podejrzeć zapisaną bazę (SQLite)
 
-- jeśli masz narzędzie `sqlite3`:
+## Jak podejrzeć zapisy w bazie (SQLite)
 
-```
-sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
-```
-- albo za pomocą Pythona:
+* jeśli masz narzędzie `sqlite3`:
 
 ```
 sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
+```
+
+* albo za pomocą Pythona:
+
+```
+python - <<'PY'
+import sqlite3
+
+conn = sqlite3.connect("predictions.db")
+cur = conn.cursor()
+cur.execute(
+    "select id, ts, payload, prediction, model_version "
+    "from predictions order by id desc limit 5;"
+)
+for row in cur.fetchall():
+    print(row)
+conn.close()
+PY
 ```
 
 ## Konfiguracja (zmienne środowiskowe)
 
-Plik `.env.example` skopiuj go do `.env` :
+Plik `.env.example` — skopiuj go do `.env`:
 
 ```
 cp .env.example .env
