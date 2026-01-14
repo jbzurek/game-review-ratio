@@ -23,7 +23,7 @@ Predykcja odsetka pozytywnych recenzji gier na podstawie metadanych Steam.
 * [Monitoring i diagnostyka](#monitoring-i-diagnostyka)
 * [Testy i jakość](#testy-i-jakość)
 * [Struktura repozytorium](#struktura-repozytorium)
-* [Required Columns (API)](#required-columns-api)
+* [Wymagane kolumny (API)](#required-columns-api)
 * [Załączniki / linki](#załączniki--linki)
 
 ---
@@ -39,26 +39,27 @@ Projekt przeznaczony jest dla zespołów data science i developerów chcących p
 
 ---
 
-# **ARCHITEKTURA (HIGH-LEVEL)**
+# **ARCHITEKTURA (POZIOM HIGH-LEVEL)**
 
 ```
+
 Steam Dataset
-      ↓
+    |
 Kedro Pipeline
-      ↓
+    |
 Artefakty modeli i metryk
-      ↓
+    |
 W&B (eksperymenty, wersjonowanie, alias "production")
-      ↓
+    |
 FastAPI (endpoint: /predict)
-      ↓
-Streamlit UI [TODO]
-      ↓
-GCP Cloud Run [TODO]
+    |
+Streamlit UI
+    |
+GCP Cloud Run
+
 ```
 
-Eksperymenty śledzone są w
-**W&B Dashboard:** [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
+Eksperymenty śledzone są w **Panelu W&B:** [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
 
 ---
 
@@ -72,6 +73,7 @@ Eksperymenty śledzone są w
 **Rozmiar:** próbka 100 wierszy (`data/01_raw/sample_100.csv`)
 
 **Target:** `pct_pos_total`
+
 **Cechy:** metadane gier: gatunki, tagi, platformy, języki, opisy, daty, wydawcy itd.
 
 **PII:** brak (zbiór publiczny, opis produktów, nie użytkowników)
@@ -106,30 +108,21 @@ kedro run
 
 * `data/03_processed/` – przetworzone dane
 * `data/06_models/`
-
   * `baseline_model.pkl`
   * `ag_model.pkl`
   * `production_model.pkl`
   * `required_columns.json`
 * `data/09_tracking/`
-
   * `baseline_metrics.json`
   * `ag_metrics.json`
-
-Diagram (Kedro-Viz):
-
-<p align="center">
-  <img src="images/kedro-pipeline.svg" width="70%" />
-</p>
 
 ---
 
 # **EKSPERYMENTY I WYNIKI (W&B)**
 
-Wszystkie eksperymenty dostępne są w panelu **W&B Dashboard:**
-[W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
+Wszystkie eksperymenty dostępne są w panelu [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio).
 
-Trzy konfiguracje AutoGluon zostały uruchomione.
+Zostały uruchomione trzy konfiguracje AutoGluon.
 
 ## **Metryki porównawcze (RMSE / MAE / R²)**
 
@@ -166,7 +159,7 @@ data/06_models/production_model.pkl
 
 ---
 
-# **MODEL I MODEL CARD**
+# **MODEL I KARTA MODELU**
 
 Model produkcyjny:
 
@@ -174,7 +167,7 @@ Model produkcyjny:
 data/06_models/production_model.pkl
 ```
 
-Model Card:
+Karta modelu:
 
 ```
 docs/model_card.md
@@ -216,51 +209,66 @@ uvicorn src.api.main:app --reload --port 8000
 
 ---
 
-# **KONFIGURACJA: ENV I SEKRETY**
+# **KONFIGURACJA: ZMIENNE ŚRODOWISKOWE I SEKRETY**
 
 ---
 
 # **API (FastAPI)**
 
-## Quickstart: uruchomienie API
+---
 
-1. Uruchom serwis (w katalogu repozytorium):
+## Szybki start: uruchomienie API
+
+### 1. Uruchom API
+
+W katalogu głównym repozytorium:
 
 ```
 uvicorn src.api.main:app --reload --port 8000
 ```
 
-2. Sprawdź endpoint zdrowia (`GET /healthz`):
+---
+
+### 2. Sprawdź status serwisu
+
+Endpoint `GET /healthz`:
 
 ```
-curl http://localhost:8000/healthz
-# oczekiwany wynik: {"status":"ok"}
+curl http://127.0.0.1:8000/healthz
 ```
 
-3. Dokumentacja interaktywna:
+Oczekiwany wynik:
 
 ```
-http://localhost:8000/docs
+{"status": "ok"}
 ```
 
-## Przykładowa predykcja (`POST /predict`)
+---
 
-**curl (Linux/macOS/WSL):**
+### 3. Wykonaj predykcję
 
-```
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
-```
+Endpoint `POST /predict`
 
-**PowerShell (Windows):**
+#### Windows (curl.exe)
 
 ```
-Invoke-RestMethod -Uri http://localhost:8000/predict `
+curl.exe --% -X POST "http://127.0.0.1:8000/predict" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"data\":{\"appid\":12345,\"price\":0.0,\"user_score\":7.5}}"
+```
+
+#### PowerShell
+
+```
+Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
   -Method POST `
   -Headers @{ "Content-Type" = "application/json" } `
   -Body '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
 ```
+
+---
+
+## Jak podejrzeć zapisaną bazę (SQLite)
 
 ## Jak podejrzeć zapisy w bazie (SQLite)
 
@@ -268,32 +276,6 @@ Invoke-RestMethod -Uri http://localhost:8000/predict `
 
 ```
 sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
-```
-
-* albo za pomocą Pythona:
-
-```
-python - <<'PY'
-import sqlite3
-
-conn = sqlite3.connect("predictions.db")
-cur = conn.cursor()
-cur.execute(
-    "select id, ts, payload, prediction, model_version "
-    "from predictions order by id desc limit 5;"
-)
-for row in cur.fetchall():
-    print(row)
-conn.close()
-PY
-```
-
-## Konfiguracja (zmienne środowiskowe)
-
-Plik `.env.example` — skopiuj go do `.env`:
-
-```
-cp .env.example .env
 ```
 ---
 
@@ -330,60 +312,9 @@ pre-commit run -a
 
 # **STRUKTURA REPOZYTORIUM**
 
-```
-GameReviewRatio/
-│
-├── conf/
-│   ├── base/
-│   │   ├── catalog.yml
-│   │   └── parameters.yml
-│   └── local/
-│
-├── data/
-│   ├── 01_raw/
-│   ├── 02_interim/
-│   ├── 03_processed/
-│   ├── 06_models/
-│   │   ├── AutogluonModels/
-│   │   ├── ag_model.pkl
-│   │   ├── baseline_model.pkl
-│   │   ├── production_model.pkl
-│   │   └── required_columns.json
-│   └── 09_tracking/
-│       ├── baseline_metrics.json
-│       └── ag_metrics.json
-│
-├── docs/
-│   └── model_card.md
-│
-├── images/
-│   └── kedro-pipeline.svg
-│
-├── src/
-│   ├── api/
-│       └── main.py
-│   └── gamereviewratio/
-│       └── pipelines/
-│           └── evaluation/
-│               ├── nodes.py
-│               └── pipeline.py
-│
-├── tests/
-│   └── pipelines/
-│       └── evaluation/
-│
-├── .gitignore
-├── .pre-commit-config.yaml
-├── .telemetry
-├── environment.yml
-├── predictions.db
-├── pyproject.toml
-└── README.md
-```
-
 ---
 
-# **REQUIRED COLUMNS (API)**
+# **WYMAGANE KOLUMNY (API)**
 
 Plik:
 
@@ -391,46 +322,11 @@ Plik:
 data/06_models/required_columns.json
 ```
 
-zawiera listę kolumn, które muszą zostać przekazane do modelu przy inferencji.
-
-Model nie przyjmie danych:
-
-* z brakującymi kolumnami,
-* z dodatkowymi kolumnami,
-* w innej kolejności,
-* z innym typem danych niż trenowane.
-
-Przykład zawartości:
-
-```json
-[
-  "release_date",
-  "languages_en",
-  "platform_windows",
-  "tag_multiplayer",
-  "genre_action"
-]
-```
-
-W API odbywa się automatyczna walidacja:
-
-1. sprawdzanie brakujących kolumn,
-2. wypełnianie pustymi wartościami, jeśli pipeline to wspiera,
-3. reranking kolumn do zgodnego z treningiem porządku.
-
-Jeśli cokolwiek się nie zgadza, to API zwróci błąd:
-
-```
-400 - InvalidInputError: Missing or unexpected columns
-```
-
 ---
 
 # **ZAŁĄCZNIKI / LINKI**
 
-* **W&B Project:** [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
-* **Artefakty modelu**: dostępne w W&B
-* **Model Card:** `docs/model_card.md`
-* **Diagram potoku:** `images/kedro-pipeline.svg`
-
----
+* **W&B Project**
+* **Artefakty modelu**
+* **Model Card**
+* **Diagram potoku**
