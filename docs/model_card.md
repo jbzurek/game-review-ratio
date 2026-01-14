@@ -1,6 +1,8 @@
-# **Model Card — Game Review Ratio (Production Model)**
+🇬🇧 [English](model_card.eng.md)
 
-## **1. Problem & Intended Use**
+# **Karta modelu – Game Review Ratio (model produkcyjny)**
+
+## **1. Problem i przeznaczenie**
 
 Model służy do **predykcji odsetka pozytywnych recenzji gier (`pct_pos_total`)** na podstawie publicznych metadanych gier z platformy Steam.
 
@@ -20,7 +22,7 @@ Model ma charakter **analityczny / wspierający**, nie decyzyjny.
 
 ---
 
-## **2. Data (source, license, size, PII)**
+## **2. Dane (źródło, licencja, rozmiar, dane osobowe)**
 
 ### Źródło danych
 
@@ -28,11 +30,10 @@ Dane: [Steam Games Dataset (Kaggle)](https://www.kaggle.com/datasets/artermiloff
 
 ### Licencja
 
-MIT (zgodnie z opisem datasetu).
+* MIT (zgodnie z opisem datasetu).
 
 ### Rozmiar danych
 
-* Wersja produkcyjna modelu trenowana na próbce ~100 rekordów,
 * Docelowy pełny zbiór: ok. 5000 gier.
 
 ### Zawartość danych
@@ -45,33 +46,33 @@ MIT (zgodnie z opisem datasetu).
 * liczba recenzji i procent pozytywnych,
 * opisy i dodatkowe metadane.
 
-### PII
+### Dane osobowe (PII)
 
 Brak danych osobowych.
 Zbiór nie zawiera recenzentów ani ich identyfikatorów. Wyłącznie dane o produktach.
 
 ---
 
-## **3. Metrics**
+## **3. Metryki**
 
-### Główna metryka:
+### Główna metryka
 
 **RMSE (Root Mean Squared Error)**
 Powód: karze duże błędy predykcji i jest standardem dla regresji.
 
-### Walidacja:
+### Walidacja
 
 * podział danych: **80% train / 20% test**, losowy,
 * powtarzalność: `random_state = 42`.
 
-### Wyniki (model produkcyjny – baseline):
+### Wyniki (model produkcyjny – baseline)
 
 * **RMSE (test): ~7.05**
-* **MAE:** –
-* **R²:** –
-  *(Baseline loguje tylko RMSE, zgodnie z implementacją).*
+* **MAE:** -
+* **R²:** -
+  *(baseline loguje tylko RMSE)*
 
-### Wyniki modeli porównawczych (AutoGluon):
+### Wyniki modeli porównawczych (AutoGluon)
 
 | Eksperyment    | Parametry                                                  | RMSE  | MAE   | R²    |
 | -------------- | ---------------------------------------------------------- | ----- | ----- | ----- |
@@ -79,62 +80,59 @@ Powód: karze duże błędy predykcji i jest standardem dla regresji.
 | **AG – Exp 2** | `time_limit=60`, `medium_quality`                          | ~7.43 | ~5.69 | ~0.20 |
 | **AG – Exp 3** | `time_limit=120`, `high_quality_fast_inference_only_refit` | ~9.07 | ~7.61 | −0.19 |
 
-### Wnioski:
+### Wnioski
 
 * **Baseline jest najlepszy (najniższy RMSE)** i został wybrany jako model produkcyjny.
-* AutoGluon nie uzyskał lepszych wyników na małej próbce danych (~100 gier).
+* AutoGluon nie uzyskał lepszych wyników na małej próbce danych.
 * Eksperymenty AG 1 i 2 dają identyczne wyniki — dłuższy czas treningu nie poprawia jakości.
 * Preset `high_quality_fast_inference_only_refit` (Exp 3) prowadzi do przeuczenia.
 
 ---
 
-## **4. Limitations & Risks**
+## **4. Ograniczenia i ryzyka**
 
-### Ograniczenia:
+### Ograniczenia
 
-* mała próbka treningowa (ok. 100 gier) -> wysoka wariancja i ograniczona generalizacja,
 * model korzysta wyłącznie z metadanych,
 * różnorodność gier (AAA vs indie) może wprowadzać bias,
 * mała reprezentacja gier niszowych i starych tytułów.
 
-### Ryzyka:
+### Ryzyka
 
 * błędna interpretacja predykcji bez kontekstu dziedzinowego,
 * fałszywe poczucie pewności co do jakości gry,
 * ryzyko użycia modelu w celach decyzyjnych, do których nie został zaprojektowany.
 
-### Mitigacje:
+### Działania ograniczające ryzyko
 
-* trenowanie na pełnym zbiorze (5000+ gier),
 * regularny retraining i monitoring w W&B,
-* wzbogacenie cech o embeddingi tekstowe (opinie graczy),
 * analiza błędów i odrzucanie przypadków o wysokiej niepewności.
 
 ---
 
-## **5. Versioning**
+## **5. Wersjonowanie**
 
-### W&B Run (Production Model):
+### W&B Run (model produkcyjny)
 
 [W&B Dashboard — GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
 
-### Model Artifact:
+### Artefakt modelu
 
 `gamereviewratio/baseline_model:production`
 
 *(Model AutoGluon został zachowany jako kandydat, ale nie wybrany).*
 
-### Code version:
+### Wersja kodu
 
 Commit: `575d69d`
 (`kedro run` wykonano z tego commitu)
 
-### Data version:
+### Wersja danych
 
 Plik: `data/01_raw/sample_100.csv`
 Źródło: Steam Games Dataset (Kaggle)
 
-### Environment:
+### Środowisko
 
 * Python 3.11
 * AutoGluon 1.x (modele porównawcze)
