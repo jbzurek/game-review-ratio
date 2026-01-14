@@ -32,3 +32,6 @@ Thumbs.db
 wandb/
 .viz/
 .kedro/
+
+# DB
+predictions.db

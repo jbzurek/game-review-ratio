@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
-from gamereviewratio.pipelines.evaluation.nodes import split_data
+
+from src.gamereviewratio.pipelines.evaluation.nodes import split_data
 
 
 # testuje poprawność podziału danych na x i y

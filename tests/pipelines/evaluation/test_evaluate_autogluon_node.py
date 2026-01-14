@@ -3,7 +3,7 @@ import pandas as pd
 from unittest.mock import MagicMock
 from pathlib import Path
 
-from gamereviewratio.pipelines.evaluation.nodes import (
+from src.gamereviewratio.pipelines.evaluation.nodes import (
     evaluate_autogluon,
     train_baseline,
 )

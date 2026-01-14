@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     # ścieżka do modelu
     MODEL_PATH: str = "data/06_models/production_model.pkl"
@@ -79,7 +80,9 @@ class Features(BaseModel):
 
     @field_validator("data")
     @classmethod
-    def validate_data(cls, v: Dict[str, Union[int, float]]) -> Dict[str, Union[int, float]]:
+    def validate_data(
+        cls, v: Dict[str, Union[int, float]]
+    ) -> Dict[str, Union[int, float]]:
         # sprawdza pusty payload
         if not v:
             raise ValueError("payload data nie może być pusty")
