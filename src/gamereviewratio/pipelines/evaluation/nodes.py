@@ -5,8 +5,8 @@ import json
 import random
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
 from shutil import copyfile
+from typing import Any, Dict, List, Tuple
 
 import joblib
 import numpy as np
@@ -44,9 +44,17 @@ def _parse_list_cell(x: Any) -> List[str]:
     return []
 
 
+# wycina kolumny z wyciekiem targetu
+def _assert_no_leakage(x: pd.DataFrame, leak_cols: List[str]) -> None:
+    present = [c for c in leak_cols if c in x.columns]
+    if present:
+        raise ValueError(f"leakage columns still present in features: {present}")
+
+
 # wykonuje podstawowe czyszczenie i inżynierię cech
 def basic_clean(df: pd.DataFrame, clean: Dict[str, Any], target: str) -> pd.DataFrame:
     df = df.copy()
+
     threshold = float(clean.get("threshold_missing", 0.3))
     bin_flag_cols = list(clean.get("bin_flag_cols", []))
     platform_cols = list(clean.get("platform_cols", []))
@@ -54,6 +62,7 @@ def basic_clean(df: pd.DataFrame, clean: Dict[str, Any], target: str) -> pd.Data
     mlb_cols = list(clean.get("mlb_cols", []))
     top_n = int(clean.get("top_n_labels", 50))
 
+    # usuwa kolumny z dużą liczbą braków (oprócz targetu)
     to_drop = []
     for col in df.columns:
         if col == target:
@@ -63,10 +72,7 @@ def basic_clean(df: pd.DataFrame, clean: Dict[str, Any], target: str) -> pd.Data
     if to_drop:
         df.drop(columns=to_drop, inplace=True, errors="ignore")
 
-    for col in ["positive", "negative"]:
-        if col in df.columns:
-            df.drop(columns=[col], inplace=True)
-
+    # normalizuje datę premiery i robi cechy czasowe
     if "release_date" in df.columns:
         df["release_date"] = pd.to_datetime(df["release_date"], errors="coerce")
         df["release_year"] = df["release_date"].dt.year
@@ -78,34 +84,47 @@ def basic_clean(df: pd.DataFrame, clean: Dict[str, Any], target: str) -> pd.Data
             df[f"has_{col}"] = df[col].notnull().astype(int)
             df.drop(columns=[col], inplace=True)
 
+    # platformy jako 0/1
     for col in platform_cols:
         if col in df.columns:
             df[col] = df[col].fillna(False).astype(int)
 
-    for col in drop_cols:
-        if col in df.columns:
-            df.drop(columns=[col], inplace=True)
+    if drop_cols:
+        df.drop(
+            columns=[c for c in drop_cols if c in df.columns],
+            inplace=True,
+            errors="ignore",
+        )
 
+    # multilabel binarizer dla kolumn listowych
     for col in mlb_cols:
         if col not in df.columns:
             continue
+
         series = df[col].apply(_parse_list_cell)
+
         counts: Dict[str, int] = {}
         for lst in series.dropna():
             for lab in lst:
                 counts[lab] = counts.get(lab, 0) + 1
+
         top_labels = sorted(counts, key=counts.get, reverse=True)[:top_n]
         top_set = set(top_labels)
+
         if not top_set:
             df.drop(columns=[col], inplace=True)
             continue
+
+        # filtruje tylko top etykiety
         series_top = series.apply(lambda lst: [x for x in lst if x in top_set])
+
         mlb = MultiLabelBinarizer(classes=sorted(top_set))
         encoded = pd.DataFrame(
             mlb.fit_transform(series_top),
             columns=[f"{col}_{c}" for c in mlb.classes_],
             index=df.index,
         )
+
         df = pd.concat([df.drop(columns=[col]), encoded], axis=1)
 
     return df
@@ -121,10 +140,31 @@ def split_data(
     random_state = int(split.get("random_state", 42))
 
     if target not in df.columns:
-        raise ValueError(f"Kolumna docelowa '{target}' nie znajduje się w DataFrame")
+        raise ValueError(f"kolumna docelowa '{target}' nie znajduje się w dataframe")
 
     y = pd.to_numeric(df[target], errors="coerce")
     x = df.drop(columns=[target])
+
+    leak_cols = [
+        target,
+        "positive",
+        "negative",
+        "num_reviews_total",
+        "num_reviews_recent",
+        "pct_pos_recent",
+        "recommendations",
+        "user_score",
+        "score_rank",
+        "estimated_owners",
+        "average_playtime_forever",
+        "average_playtime_2weeks",
+        "median_playtime_forever",
+        "median_playtime_2weeks",
+        "peak_ccu",
+        "reviews",
+    ]
+    _assert_no_leakage(x, leak_cols)
+
     x = pd.get_dummies(x, drop_first=True)
 
     mask = y.notnull()
@@ -240,10 +280,11 @@ def train_autogluon(
     train_df[label] = pd.to_numeric(y_series, errors="coerce")
     train_df = train_df.dropna(subset=[label])
 
+    # zapisuje listę wymaganych kolumn (dla api)
     try:
         req_cols_path = Path("data/06_models/required_columns.json")
         req_cols_path.parent.mkdir(parents=True, exist_ok=True)
-        cols_list = list((train_df.drop(columns=[label]).columns))
+        cols_list = list(train_df.drop(columns=[label]).columns)
         with open(req_cols_path, "w", encoding="utf-8") as f:
             json.dump({"columns": cols_list}, f, ensure_ascii=False, indent=2)
     except Exception:
@@ -369,7 +410,7 @@ def save_production_model(best_model_name: str) -> str:
     elif best_model_name == "baseline_model":
         src = Path("data/06_models/baseline_model.pkl")
     else:
-        raise ValueError(f"Nieznana nazwa najlepszego modelu: {best_model_name!r}")
+        raise ValueError(f"nieznana nazwa najlepszego modelu: {best_model_name!r}")
 
     dst = Path("data/06_models/production_model.pkl")
     dst.parent.mkdir(parents=True, exist_ok=True)

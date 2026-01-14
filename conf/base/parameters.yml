@@ -2,37 +2,57 @@ target: pct_pos_total # nazwa kolumny z targetem
 
 clean:
   threshold_missing: 0.3 # maksymalny akceptowalny procent braków
-  bin_flag_cols: # kolumny zamieniane na flagi binarne
-    - website
-    - support_url
-    - detailed_description
-    - about_the_game
-    - short_description
-    - header_image
-    - screenshots
-    - movies
+
   platform_cols: # kolumny platform
     - windows
     - mac
     - linux
-  drop_cols: # kolumny odrzucane
+
+  drop_cols:
+    # leakage: recenzje / wyniki / popularność
+    - reviews
+    - positive
+    - negative
+    - num_reviews_total
     - num_reviews_recent
     - pct_pos_recent
-    - publishers
-    - developers
-    - packages
+    - recommendations
+    - user_score
+    - score_rank
     - estimated_owners
-    - name
-    - reviews
-    - metacritic_url
+    - average_playtime_forever
+    - average_playtime_2weeks
+    - median_playtime_forever
+    - median_playtime_2weeks
+    - peak_ccu
+
+    - detailed_description
+    - about_the_game
+    - short_description
+    - header_image
+    - website
+    - support_url
     - support_email
+    - metacritic_url
     - notes
-  mlb_cols: # kolumny do multilabel binarizer
+    - screenshots
+    - movies
+    - packages
+
+    # identyfikatory
+    - name
+    - appid
+
+  # kolumny do multilabel binarizer
+  mlb_cols:
     - genres
     - categories
     - tags
+    - developers
+    - publishers
     - supported_languages
     - full_audio_languages
+
   top_n_labels: 50 # liczba najpopularniejszych etykiet do zachowania
 
 random_state: 42 # seed losowy
@@ -53,20 +73,3 @@ autogluon:
   label: ${target}
   eval_metric: "rmse"
   random_state: ${random_state}
-
-# alternatywne konfiguracje ag
-#autogluon:
-#  time_limit: 60
-#  presets: "medium_quality"
-#  problem_type: "regression"
-#  label: ${target}
-#  eval_metric: "rmse"
-#  random_state: ${random_state}
-
-#autogluon:
-#  time_limit: 120
-#  presets: "high_quality_fast_inference_only_refit"
-#  problem_type: "regression"
-#  label: ${target}
-#  eval_metric: "rmse"
-#  random_state: ${random_state}

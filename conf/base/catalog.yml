@@ -4,20 +4,20 @@
 # Link: https://docs.kedro.org/en/stable/data/data_catalog.html
 
 # surowy csv z danymi wejściowymi - sample_100
-raw_data:
-  type: kedro_datasets.pandas.CSVDataset
-  filepath: data/01_raw/sample_100.csv
-  load_args:
-    encoding: utf-8
-    low_memory: false
-
-# surowy csv z danymi wejściowymi - games_first_5000
 #raw_data:
 #  type: kedro_datasets.pandas.CSVDataset
-#  filepath: data/01_raw/games_first_5000.csv
+#  filepath: data/01_raw/sample_100.csv
 #  load_args:
 #    encoding: utf-8
 #    low_memory: false
+
+# surowy csv z danymi wejściowymi - games_march2025_sample_5000.csv
+raw_data:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/01_raw/games_march2025_sample_5000.csv
+  load_args:
+    encoding: utf-8
+    low_memory: false
 
 # oczyszczony dataframe w formacie parquet
 clean_df:
