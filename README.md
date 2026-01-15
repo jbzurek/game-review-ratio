@@ -44,30 +44,30 @@ Projekt przeznaczony jest dla zespołów data science i developerów chcących p
 ```
 
 Steam Dataset
-    |
+|
 Kedro Pipeline
-    |
+|
 Artefakty modeli i metryk
-    |
+|
 W&B (eksperymenty, wersjonowanie, alias "production")
-    |
+|
 FastAPI (endpoint: /predict)
-    |
+|
 Streamlit UI
-    |
+|
 GCP Cloud Run
 
 ```
 
-Eksperymenty śledzone są w **Panelu W&B:** [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio)
+**Panel W&B (eksperymenty):** https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio
 
 ---
 
 # **DANE**
 
-**Źródło:** [Steam Games Dataset (Kaggle)](https://www.kaggle.com/datasets/artermiloff/steam-games-dataset)
+**Źródło (Kaggle):** https://www.kaggle.com/datasets/artermiloff/steam-games-dataset
 
-**Licencja:** MIT
+**Licencja:** MIT  
 **Data pobrania:** 07.10.2025
 
 **Rozmiar:** próbka 100 wierszy (`data/01_raw/sample_100.csv`)
@@ -86,7 +86,7 @@ Uruchomienie potoku:
 
 ```
 kedro run
-```
+````
 
 ### Główne nody:
 
@@ -108,11 +108,13 @@ kedro run
 
 * `data/03_processed/` – przetworzone dane
 * `data/06_models/`
+
   * `baseline_model.pkl`
   * `ag_model.pkl`
   * `production_model.pkl`
   * `required_columns.json`
 * `data/09_tracking/`
+
   * `baseline_metrics.json`
   * `ag_metrics.json`
 
@@ -120,7 +122,7 @@ kedro run
 
 # **EKSPERYMENTY I WYNIKI (W&B)**
 
-Wszystkie eksperymenty dostępne są w panelu [W&B GameReviewRatio](https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio).
+**Panel W&B (wszystkie runy):** https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio
 
 Zostały uruchomione trzy konfiguracje AutoGluon.
 
@@ -153,7 +155,7 @@ Każdy run loguje:
 
 Najlepszy model (alias `production`) zapisany jest jako:
 
-```
+```text
 data/06_models/production_model.pkl
 ```
 
@@ -163,13 +165,13 @@ data/06_models/production_model.pkl
 
 Model produkcyjny:
 
-```
+```text
 data/06_models/production_model.pkl
 ```
 
 Karta modelu:
 
-```
+```text
 docs/model_card.md
 ```
 
@@ -203,13 +205,142 @@ uvicorn src.api.main:app --reload --port 8000
 
 # **DOCKER I DOCKER-COMPOSE**
 
+Projekt udostępnia lokalny stack uruchamiany jednym poleceniem `docker compose`, składający się z:
+
+* **API** – FastAPI (endpointy predykcji i healthcheck)
+* **UI** – Streamlit
+* **DB** – PostgreSQL (kontener)
+
+### Wymagania
+
+* Docker
+* Docker Compose (v2)
+
+### Szybki start
+
+W katalogu głównym repozytorium:
+
+```
+docker compose up --build
+```
+
+Po uruchomieniu dostępne są:
+
+| Usługa          | Adres                         |
+| --------------- |-------------------------------|
+| API (FastAPI)   | http://localhost:8000         |
+| Healthcheck     | http://localhost:8000/healthz |
+| UI (Streamlit)  | http://localhost:8501         |
+| DB (PostgreSQL) | localhost:5432                |
+
+---
+
+### Sprawdzenie API
+
+Healthcheck:
+
+```
+curl http://localhost:8000/healthz
+```
+
+Oczekiwany wynik:
+
+```
+{"status":"ok"}
+```
+
+Predykcja:
+
+```
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "required_age": 0,
+    "price": 19.99,
+    "dlc_count": 0,
+    "windows": true,
+    "mac": false,
+    "linux": false,
+    "metacritic_score": 0,
+    "achievements": 0,
+    "discount": 0,
+    "release_year": 2024,
+    "release_month": 6,
+    "genres": ["Action","Indie"],
+    "categories": ["Single-player"],
+    "tags": ["Action","Indie"],
+    "developers": [],
+    "publishers": [],
+    "supported_languages": ["English"],
+    "full_audio_languages": ["English"]
+  }'
+```
+
+---
+
+### UI (Streamlit)
+
+**UI (Streamlit):** http://localhost:8501
+
+UI komunikuje się z API przez endpoint `POST /predict`.
+
+---
+
+### Sprawdzenie zapisów w bazie danych
+
+1. Sprawdź nazwę kontenera DB:
+
+```
+docker compose ps
+```
+
+2. Wejdź do bazy danych:
+
+```
+docker exec -it <NAZWA_KONTENERA_DB> psql -U app -d appdb
+```
+
+3. Przykładowe zapytanie:
+
+```
+select id, ts, prediction, model_version
+from predictions
+order by id desc
+limit 5;
+```
+
+---
+
+### Zatrzymanie stacka
+
+```
+docker compose down
+```
+
+---
+
+### Konfiguracja środowiska
+
+**Zmienne środowiskowe (env example):**
+.env.example
+
+Plik `.env` nie jest commitowany do repozytorium.
+
 ---
 
 # **WDROŻENIE W CHMURZE (GCP CLOUD RUN)**
 
+Planned / future work.
+
 ---
 
 # **KONFIGURACJA: ZMIENNE ŚRODOWISKOWE I SEKRETY**
+
+**ENV (.env.example):**
+.env.example
+
+Zmienne środowiskowe są wczytywane z `.env` (lokalnie) lub ustawiane w środowisku uruchomieniowym (Docker/CI).
+Plik `.env` nie jest commitowany do repozytorium (w repo znajduje się `.env.example`).
 
 ---
 
@@ -221,8 +352,6 @@ uvicorn src.api.main:app --reload --port 8000
 
 ### 1. Uruchom API
 
-W katalogu głównym repozytorium:
-
 ```
 uvicorn src.api.main:app --reload --port 8000
 ```
@@ -231,7 +360,7 @@ uvicorn src.api.main:app --reload --port 8000
 
 ### 2. Sprawdź status serwisu
 
-Endpoint `GET /healthz`:
+**Healthcheck:** http://127.0.0.1:8000/healthz
 
 ```
 curl http://127.0.0.1:8000/healthz
@@ -240,21 +369,21 @@ curl http://127.0.0.1:8000/healthz
 Oczekiwany wynik:
 
 ```
-{"status": "ok"}
+{"status":"ok"}
 ```
 
 ---
 
 ### 3. Wykonaj predykcję
 
-Endpoint `POST /predict`
+**Endpoint /predict:** http://127.0.0.1:8000/predict
 
 #### Windows (curl.exe)
 
 ```
 curl.exe --% -X POST "http://127.0.0.1:8000/predict" ^
   -H "Content-Type: application/json" ^
-  -d "{\"data\":{\"appid\":12345,\"price\":0.0,\"user_score\":7.5}}"
+  -d "{\"required_age\":0,\"price\":19.99,\"dlc_count\":0,\"windows\":true,\"mac\":false,\"linux\":false,\"metacritic_score\":0,\"achievements\":0,\"discount\":0,\"release_year\":2024,\"release_month\":6,\"genres\":[\"Action\",\"Indie\"],\"categories\":[\"Single-player\"],\"tags\":[\"Action\",\"Indie\"],\"developers\":[],\"publishers\":[],\"supported_languages\":[\"English\"],\"full_audio_languages\":[\"English\"]}"
 ```
 
 #### PowerShell
@@ -263,7 +392,26 @@ curl.exe --% -X POST "http://127.0.0.1:8000/predict" ^
 Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
   -Method POST `
   -Headers @{ "Content-Type" = "application/json" } `
-  -Body '{"data": {"appid": 12345, "price": 0.0, "user_score": 7.5}}'
+  -Body '{
+    "required_age": 0,
+    "price": 19.99,
+    "dlc_count": 0,
+    "windows": true,
+    "mac": false,
+    "linux": false,
+    "metacritic_score": 0,
+    "achievements": 0,
+    "discount": 0,
+    "release_year": 2024,
+    "release_month": 6,
+    "genres": ["Action","Indie"],
+    "categories": ["Single-player"],
+    "tags": ["Action","Indie"],
+    "developers": [],
+    "publishers": [],
+    "supported_languages": ["English"],
+    "full_audio_languages": ["English"]
+  }'
 ```
 
 ---
@@ -272,11 +420,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:8000/predict `
 
 ## Jak podejrzeć zapisy w bazie (SQLite)
 
-* jeśli masz narzędzie `sqlite3`:
+* jeśli uruchamiasz API lokalnie (bez Dockera) i masz narzędzie `sqlite3`:
 
 ```
 sqlite3 predictions.db "select id, ts, payload, prediction, model_version from predictions order by id desc limit 5;"
 ```
+
 ---
 
 # **UI (STREAMLIT)**
@@ -291,7 +440,9 @@ W repozytorium znajduje się plik:
 predictions.db
 ```
 
-SQLite – lokalne logowanie predykcji z API.
+SQLite – lokalne logowanie predykcji z API (tryb lokalny, bez Dockera).
+
+W docker-compose wykorzystywana jest baza PostgreSQL w kontenerze (rekomendowany tryb uruchomienia dla Sprint 5).
 
 ---
 
@@ -326,7 +477,12 @@ data/06_models/required_columns.json
 
 # **ZAŁĄCZNIKI / LINKI**
 
-* **W&B Project**
-* **Artefakty modelu**
-* **Model Card**
-* **Diagram potoku**
+**W&B Project:** https://wandb.ai/zurek-jakub-polsko-japo-ska-akademia-technik-komputerowych/gamereviewratio
+
+**Dataset (Kaggle):** https://www.kaggle.com/datasets/artermiloff/steam-games-dataset
+
+**Model Card:**
+docs/model_card.md
+
+**Artefakty modelu:**
+data/06_models/

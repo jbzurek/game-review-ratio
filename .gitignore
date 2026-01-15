@@ -16,22 +16,38 @@ dist/
 .venv/
 venv/
 
-# Kedro data folders
-data/**/*
-!data/**/.gitkeep
-!data/**/README.md
-!data/01_raw/sample_100.csv
+# data
+data/02_intermediate/
+data/03_processed/
+data/04_features/
+data/05_model_input/
+data/06_models/
 
-# IDE / OS
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
+!data/01_raw/
+data/01_raw/*
+!data/01_raw/sample_100.csv
+!data/01_raw/README.md
+
+# ML artifacts
+*.pkl
+*.joblib
+*.onnx
+mlruns/
+outputs/
+logs/
 
 # W&B, Kedro Viz, cache
 wandb/
 .viz/
 .kedro/
 
-# DB
-predictions.db
+# databases
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
