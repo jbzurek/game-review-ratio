@@ -17,16 +17,24 @@ with st.expander("api", expanded=False):
     st.write("API_URL:", API_URL)
 
 st.subheader("basic")
-required_age = st.number_input("required_age", min_value=0, max_value=99, value=0, step=1)
+required_age = st.number_input(
+    "required_age", min_value=0, max_value=99, value=0, step=1
+)
 price = st.number_input("price (USD)", min_value=0.0, value=19.99, step=1.0)
 dlc_count = st.number_input("dlc_count", min_value=0, value=0, step=1)
 
-metacritic_score = st.number_input("metacritic_score", min_value=0, max_value=100, value=0, step=1)
+metacritic_score = st.number_input(
+    "metacritic_score", min_value=0, max_value=100, value=0, step=1
+)
 achievements = st.number_input("achievements", min_value=0, value=0, step=1)
 discount = st.number_input("discount (%)", min_value=0, max_value=100, value=0, step=1)
 
-release_year = st.number_input("release_year", min_value=1990, max_value=2035, value=2024, step=1)
-release_month = st.number_input("release_month", min_value=1, max_value=12, value=6, step=1)
+release_year = st.number_input(
+    "release_year", min_value=1990, max_value=2035, value=2024, step=1
+)
+release_month = st.number_input(
+    "release_month", min_value=1, max_value=12, value=6, step=1
+)
 
 st.subheader("platforms")
 c1, c2, c3 = st.columns(3)
