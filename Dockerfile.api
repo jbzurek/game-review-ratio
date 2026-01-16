@@ -1,24 +1,28 @@
 FROM python:3.11-slim
 
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-# if you use pyproject.toml keep it; otherwise replace with requirements.txt
 COPY pyproject.toml ./
 COPY src ./src
 COPY data/06_models ./data/06_models
 
-# minimal deps for your code: fastapi + uvicorn + databases + drivers + model stack
-RUN pip install --no-cache-dir \
-    fastapi uvicorn[standard] pydantic pydantic-settings \
-    databases[postgresql] asyncpg \
-    pandas joblib \
-    aiosqlite
-
-RUN pip install --no-cache-dir "autogluon.tabular"
-
+RUN pip install --upgrade pip && \
+    pip install \
+        fastapi \
+        uvicorn[standard] \
+        pydantic \
+        pydantic-settings \
+        databases \
+        asyncpg \
+        pandas \
+        joblib \
+        aiosqlite \
+        psycopg2-binary \
+        autogluon==1.4.0
 
 EXPOSE 8000
 
-# IMPORTANT: adjust module path to where your app lives
-# if your file is: src/api/main.py and it creates `app = FastAPI(...)`
-CMD ["uvicorn","src.api.main:app","--host","0.0.0.0","--port","8000"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

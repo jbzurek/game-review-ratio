@@ -1,4 +1,3 @@
-# Python / build artefacts
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -6,44 +5,42 @@ build/
 dist/
 *.log
 
-# Jupyter
 .ipynb_checkpoints/
 
-# Virtual envs / secrets
 .env
 .env.*
 *.env
 .venv/
 venv/
 
-# data
 data/02_interim/*
 data/03_processed/*
+data/09_tracking/*
+
 data/06_models/*
-
-!data/01_raw/
-data/01_raw/*
-!data/01_raw/sample_100.csv
-
-# ML artifacts
 *.pkl
 *.joblib
 *.onnx
-mlruns/
-outputs/
-logs/
 
-# W&B, Kedro Viz, cache
-wandb/
-.viz/
-.kedro/
+!data/06_models/production_model.pkl
+!data/06_models/required_columns.json
 
-# databases
+data/01_raw/*
+!data/01_raw/sample_100.csv
+
 *.db
 *.sqlite
 *.sqlite3
 
-# IDE / OS
+wandb/
+mlruns/
+outputs/
+logs/
+.viz/
+.kedro/
+.pytest_cache/
+.ruff_cache/
+
 .idea/
 .vscode/
 .DS_Store

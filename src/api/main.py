@@ -23,13 +23,12 @@ class Settings(BaseSettings):
     # ścieżka do wymaganych kolumn
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
 
-    # URL do bazy danych (docker compose: postgresql+asyncpg://app:app@db:5432/appdb)
+    # url do bazy danych (docker compose: postgresql+asyncpg://app:app@db:5432/appdb)
+    # sqlite dla lokalnych testów: sqlite+aiosqlite:///./predictions.db
     DATABASE_URL: str = "sqlite+aiosqlite:///./predictions.db"
 
-    # wersja modelu
     MODEL_VERSION: str | None = None
 
-    # klucz do Weights & Biases
     WANDB_API_KEY: str | None = None
 
     class Config:
@@ -39,13 +38,9 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# tworzy połączenie do bazy
 database = Database(settings.DATABASE_URL)
 
-# trzyma model w pamięci
 model: Any | None = None
-
-# trzyma listę wymaganych kolumn
 required_columns: list[str] = []
 
 
@@ -72,15 +67,7 @@ def _resolve_model_version() -> str:
     return "unknown"
 
 
-# ustawia wersję modelu
 MODEL_VERSION = _resolve_model_version()
-
-
-def _parse_list(s: str | None) -> list[str]:
-    # parsuje "a, b, c" -> ["a","b","c"]
-    if not s:
-        return []
-    return [x.strip() for x in s.split(",") if x.strip()]
 
 
 def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
@@ -88,21 +75,21 @@ def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
     if not required_columns:
         raise RuntimeError("required_columns nie zostały załadowane")
 
-    row = pd.DataFrame([{c: 0 for c in required_columns}])
+    row = pd.DataFrame([{c: 0.0 for c in required_columns}], dtype=float)
 
     # cechy numeryczne/binarne
     base = {
-        "required_age": int(req.required_age),
+        "required_age": float(int(req.required_age)),
         "price": float(req.price),
-        "dlc_count": int(req.dlc_count),
-        "windows": int(bool(req.windows)),
-        "mac": int(bool(req.mac)),
-        "linux": int(bool(req.linux)),
-        "metacritic_score": int(req.metacritic_score),
-        "achievements": int(req.achievements),
-        "discount": int(req.discount),
-        "release_year": int(req.release_year),
-        "release_month": int(req.release_month),
+        "dlc_count": float(int(req.dlc_count)),
+        "windows": float(int(bool(req.windows))),
+        "mac": float(int(bool(req.mac))),
+        "linux": float(int(bool(req.linux))),
+        "metacritic_score": float(int(req.metacritic_score)),
+        "achievements": float(int(req.achievements)),
+        "discount": float(int(req.discount)),
+        "release_year": float(int(req.release_year)),
+        "release_month": float(int(req.release_month)),
     }
 
     for k, v in base.items():
@@ -113,8 +100,9 @@ def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
         for val in values:
             col = f"{prefix}_{val}"
             if col in row.columns:
-                row.at[0, col] = 1
+                row.at[0, col] = 1.0
 
+    # mlb / onehot-like kolumny
     set_mlb("genres", req.genres)
     set_mlb("categories", req.categories)
     set_mlb("tags", req.tags)
@@ -168,18 +156,17 @@ async def lifespan(app: FastAPI):
         model = joblib.load(settings.MODEL_PATH)
 
     # wczytuje wymagane kolumny
-    if os.path.isfile(settings.REQUIRED_COLUMNS_PATH):
-        with open(settings.REQUIRED_COLUMNS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            cols = (
-                data["columns"]
-                if isinstance(data, dict) and "columns" in data
-                else list(data)
-            )
-            required_columns[:] = list(cols)
-    else:
-        required_columns[:] = []
+    if not os.path.isfile(settings.REQUIRED_COLUMNS_PATH):
+        raise RuntimeError(
+            f"nie znaleziono required_columns w '{settings.REQUIRED_COLUMNS_PATH}'"
+        )
 
+    with open(settings.REQUIRED_COLUMNS_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        cols = data["columns"] if isinstance(data, dict) and "columns" in data else data
+        required_columns[:] = list(cols)
+
+    # odpala db + tworzy tabelę
     await database.connect()
     await init_db()
 
@@ -194,8 +181,12 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/healthz")
 async def healthz():
-    # zwraca status
-    return {"status": "ok", "model_version": MODEL_VERSION}
+    return {"status": "ok"}
+
+
+@app.get("/version")
+async def version():
+    return {"model_version": MODEL_VERSION}
 
 
 @app.post("/predict", response_model=Prediction)
@@ -207,7 +198,7 @@ async def predict(payload: PredictRequest):
     try:
         x = _build_feature_row(payload)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"nie udało się zbudować cech: {e}")
+        raise HTTPException(status_code=500, detail=f"nie udało się zbudować cech: {e}")
 
     try:
         pred = model.predict(x)[0]
@@ -217,10 +208,9 @@ async def predict(payload: PredictRequest):
 
     try:
         await save_prediction(payload.model_dump(), pred_out, MODEL_VERSION)
-    except Exception:
-        pass
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"db write failed: {e}")
 
-    # zwraca odpowiedź
     return Prediction(prediction=pred_out, model_version=MODEL_VERSION)
 
 
@@ -233,7 +223,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts TEXT,
                 payload TEXT,
-                prediction TEXT,
+                prediction REAL,
                 model_version TEXT
             )
         """
@@ -243,21 +233,15 @@ async def init_db():
                 id SERIAL PRIMARY KEY,
                 ts TIMESTAMP,
                 payload JSONB,
-                prediction TEXT,
+                prediction DOUBLE PRECISION,
                 model_version TEXT
             )
         """
 
-    # tworzy tabelę
     await database.execute(query=query)
 
 
-async def save_prediction(
-    payload: dict,
-    prediction: float,
-    model_version: str,
-):
-    # zapis pojedynczej predykcji
+async def save_prediction(payload: dict, prediction: float, model_version: str):
     backend = database.url.scheme
     is_sqlite = backend.startswith("sqlite")
 
@@ -274,7 +258,7 @@ async def save_prediction(
         values={
             "ts": ts_value,
             "payload": payload_value,
-            "pred": str(prediction),
+            "pred": float(prediction),
             "ver": model_version,
         },
     )
