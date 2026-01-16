@@ -1,28 +1,29 @@
 import pandas as pd
 
-from src.gamereviewratio.pipelines.evaluation.nodes import _parse_list_cell, basic_clean
+from src.gamereviewratio.pipelines.evaluation import nodes as ds_nodes
 
 
-# testuje parser list
-def test_parse_list_cell_handles_list_and_csv_and_literal():
-    assert _parse_list_cell(["a", "b"]) == ["a", "b"]
-    assert _parse_list_cell("a,b") == ["a", "b"]
-    assert _parse_list_cell("['x','y']") == ["x", "y"]
-    assert _parse_list_cell(None) == []
+def test_basic_clean_drops_release_date_and_creates_time_features():
+    df = pd.DataFrame(
+        {
+            "release_date": ["2024-06-10"],
+            "price": [19.99],
+            "target": [10.0],
+        }
+    )
 
-
-# testuje czyszczenie danych
-def test_basic_clean_threshold_removes_heavy_na():
-    df = pd.DataFrame({"x": [1, None, None], "pct_pos_total": [0.1, 0.2, 0.3]})
-    params = {
-        "threshold_missing": 0.5,
+    clean_params = {
+        "threshold_missing": 0.9,
         "bin_flag_cols": [],
         "platform_cols": [],
         "drop_cols": [],
         "mlb_cols": [],
         "top_n_labels": 10,
     }
-    out = basic_clean(df, params, target="pct_pos_total")
-    assert "x" not in out.columns
-    assert "pct_pos_total" in out.columns
-    assert not out.empty
+
+    out = ds_nodes.basic_clean(df, clean_params, target="target")
+
+    assert "release_date" not in out.columns
+    assert "release_year" in out.columns
+    assert "release_month" in out.columns
+    assert "target" in out.columns

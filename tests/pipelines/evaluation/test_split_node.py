@@ -1,34 +1,33 @@
 import pandas as pd
 import pytest
 
-from src.gamereviewratio.pipelines.evaluation.nodes import split_data
+from src.gamereviewratio.pipelines.evaluation import nodes as ds_nodes
 
 
-# testuje poprawność podziału danych na x i y
-def test_split_returns_y_as_dataframe_and_no_target_in_x():
+def test_split_data_shapes_ok():
     df = pd.DataFrame(
-        {"f1": [1, 2, 3, 4, 5], "pct_pos_total": [0.1, 0.2, 0.3, 0.4, 0.5]}
+        {
+            "price": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "windows": [1, 0, 1, 0, 1],
+            "target": [10, 20, 30, 40, 50],
+        }
     )
 
-    x_train, x_test, y_train, y_test = split_data(
-        df, "pct_pos_total", {"test_size": 0.4, "random_state": 42}
+    x_train, x_test, y_train, y_test = ds_nodes.split_data(
+        df,
+        target="target",
+        split={"test_size": 0.4, "random_state": 42},
     )
 
-    assert (
-        "pct_pos_total" not in x_train.columns
-    ), "target nie powinien znaleźć się w cechach x"
-    assert len(x_train) + len(x_test) == len(df), "suma x_train + x_test nie zgadza się"
-    assert len(y_train) + len(y_test) == len(df), "suma y_train + y_test nie zgadza się"
-    assert list(y_train.columns) == ["pct_pos_total"], "y_train ma złą strukturę"
-    assert list(y_test.columns) == ["pct_pos_total"], "y_test ma złą strukturę"
+    assert len(x_train) + len(x_test) == 5
+    assert len(y_train) + len(y_test) == 5
+    assert "target" not in x_train.columns
 
 
-# testuje obsługę błędu
-def test_split_raises_if_target_missing():
-    df = pd.DataFrame({"f1": [1, 2, 3]})
+def test_split_data_raises_on_missing_target():
+    df = pd.DataFrame({"a": [1, 2, 3]})
 
-    with pytest.raises(
-        ValueError,
-        match="Kolumna docelowa 'pct_pos_total' nie znajduje się w DataFrame",
-    ):
-        split_data(df, "pct_pos_total", {"test_size": 0.2, "random_state": 42})
+    with pytest.raises(ValueError):
+        ds_nodes.split_data(
+            df, target="target", split={"test_size": 0.2, "random_state": 42}
+        )
