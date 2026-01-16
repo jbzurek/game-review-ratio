@@ -213,6 +213,7 @@ def train_baseline(
     except Exception:
         pass
 
+    # artifact jako "candidate" (OK)
     try:
         art = wandb.Artifact("baseline_model", type="model")
         art.add_file(str(path))
@@ -416,5 +417,25 @@ def save_production_model(best_model_name: str) -> str:
     dst.parent.mkdir(parents=True, exist_ok=True)
     copyfile(src, dst)
 
-    # zwraca ścieżkę
     return str(dst)
+
+
+# publikuje produkcyjny model do W&B jako artifact z aliasem "production"
+def publish_production_artifact(
+    production_model_path: str, best_model_name: str
+) -> None:
+    try:
+        wandb.init(project="gamereviewratio", job_type="promote", reinit=True)
+    except Exception:
+        pass
+
+    artifact_name = best_model_name
+    art = wandb.Artifact(artifact_name, type="model")
+    art.add_file(str(production_model_path))
+
+    wandb.log_artifact(art, aliases=["production"])
+
+    try:
+        wandb.finish()
+    except Exception:
+        pass

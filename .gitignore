@@ -17,16 +17,13 @@ dist/
 venv/
 
 # data
-data/02_intermediate/
-data/03_processed/
-data/04_features/
-data/05_model_input/
-data/06_models/
+data/02_interim/*
+data/03_processed/*
+data/06_models/*
 
 !data/01_raw/
 data/01_raw/*
 !data/01_raw/sample_100.csv
-!data/01_raw/README.md
 
 # ML artifacts
 *.pkl

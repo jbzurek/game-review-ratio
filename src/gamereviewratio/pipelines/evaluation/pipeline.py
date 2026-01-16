@@ -8,6 +8,7 @@ from .nodes import (
     load_raw,  # wczytuje surowe dane
     log_ag_metrics,  # zapisuje metryki autogluon
     log_baseline_metrics,  # zapisuje metryki baseline
+    publish_production_artifact,  # publikuje model production do W&B
     save_production_model,  # zapisuje model produkcyjny
     split_data,  # dzieli dane na train i test
     train_autogluon,  # trenuje autogluon
@@ -83,6 +84,13 @@ def create_pipeline() -> Pipeline:
                 ["best_model_name"],
                 "production_model_path",
                 name="save_production_model",
+            ),
+            # publikuje model produkcyjny jako W&B Artifact z aliasem "production"
+            node(
+                publish_production_artifact,
+                ["production_model_path", "best_model_name"],
+                None,
+                name="publish_production_artifact",
             ),
         ]
     )
