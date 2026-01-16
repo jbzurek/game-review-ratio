@@ -67,7 +67,7 @@ GCP Cloud Run
 
 **Źródło (Kaggle):** https://www.kaggle.com/datasets/artermiloff/steam-games-dataset
 
-**Licencja:** MIT  
+**Licencja:** MIT
 **Data pobrania:** 07.10.2025
 
 **Target:** `pct_pos_total`
@@ -178,7 +178,7 @@ http://localhost:8501
 
 # **BAZA DANYCH**
 
-SQLite – lokalne logowanie predykcji z API (tryb lokalny, bez Dockera).  
+SQLite – lokalne logowanie predykcji z API (tryb lokalny, bez Dockera).
 W docker-compose wykorzystywana jest baza PostgreSQL w kontenerze.
 
 ---
@@ -206,8 +206,8 @@ data/06_models/required_columns.json
 
 **Dataset (Kaggle):** https://www.kaggle.com/datasets/artermiloff/steam-games-dataset
 
-**Model Card:**  
+**Model Card:**
 docs/model_card.md
 
-**Artefakty modelu:**  
+**Artefakty modelu:**
 data/06_models/

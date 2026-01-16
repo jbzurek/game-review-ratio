@@ -329,7 +329,6 @@ def train_autogluon(
 
     pkl_path = Path("data/06_models/ag_model.pkl")
 
-
     try:
         wandb.log({"train_time_s": train_time_s})
     except Exception:
@@ -411,9 +410,11 @@ def save_production_model(best_model_name: str) -> str:
 
         if dst.exists():
             import shutil
+
             shutil.rmtree(dst)
 
         import shutil
+
         shutil.copytree(src, dst)
 
         return str(dst)
@@ -427,7 +428,6 @@ def save_production_model(best_model_name: str) -> str:
 
     else:
         raise ValueError(f"nieznana nazwa najlepszego modelu: {best_model_name!r}")
-
 
 
 # publikuje produkcyjny model do W&B jako artifact z aliasem "production"

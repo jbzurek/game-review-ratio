@@ -23,6 +23,7 @@ from autogluon.tabular import TabularPredictor
 # Settings
 # =========================
 
+
 class Settings(BaseSettings):
     MODEL_PATH: str = "data/06_models/production_model"
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
@@ -38,13 +39,14 @@ settings = Settings()
 database = Database(settings.DATABASE_URL)
 
 model: Any | None = None
-model_type: str | None = None   # "autogluon" | "sklearn"
+model_type: str | None = None  # "autogluon" | "sklearn"
 required_columns: list[str] = []
 
 
 # =========================
 # Utils
 # =========================
+
 
 def _file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
     h = hashlib.sha256()
@@ -118,6 +120,7 @@ def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
 # Schemas
 # =========================
 
+
 class PredictRequest(BaseModel):
     required_age: int = Field(0, ge=0, le=99)
     price: float = Field(19.99, ge=0.0)
@@ -152,6 +155,7 @@ class Prediction(BaseModel):
 # Lifespan
 # =========================
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, model_type, required_columns
@@ -176,9 +180,7 @@ async def lifespan(app: FastAPI):
 
     with open(settings.REQUIRED_COLUMNS_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
-        required_columns[:] = (
-            data["columns"] if isinstance(data, dict) else list(data)
-        )
+        required_columns[:] = data["columns"] if isinstance(data, dict) else list(data)
 
     # ---- database ----
     await database.connect()
@@ -196,6 +198,7 @@ app = FastAPI(lifespan=lifespan)
 # =========================
 # Endpoints
 # =========================
+
 
 @app.get("/healthz")
 async def healthz():
@@ -239,6 +242,7 @@ async def predict(payload: PredictRequest):
 # DB helpers
 # =========================
 
+
 async def init_db():
     backend = database.url.scheme
 
@@ -266,7 +270,9 @@ async def init_db():
     await database.execute(query=query)
 
 
-async def save_prediction(payload: dict, prediction: float, model_version: str, database: Database):
+async def save_prediction(
+    payload: dict, prediction: float, model_version: str, database: Database
+):
     """
     Zapisuje predykcję do bazy danych.
     Działa dla SQLite (TEXT) i PostgreSQL (JSONB).
