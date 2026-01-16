@@ -1,56 +1,84 @@
 from __future__ import annotations
-
-import sqlite3
-from pathlib import Path
-
 import pytest
-from databases import Database
+from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi.testclient import TestClient
+from databases import Database
+import sqlite3
+
+from src.api import main as api_main
 
 
+# ----------------------------
+# Dummy model for testing
+# ----------------------------
+class DummyModel:
+    def predict(self, x):
+        import pandas as pd
+
+        return pd.Series([42.0])  # always returns 42.0
+
+
+# ----------------------------
+# SQLite helper
+# ----------------------------
 def _count_rows_sqlite(db_path: Path) -> int:
     con = sqlite3.connect(db_path)
     try:
-        cur = con.execute("select count(*) from predictions")
+        cur = con.execute("SELECT count(*) FROM predictions")
         return int(cur.fetchone()[0])
     finally:
         con.close()
 
 
-class DummyModel:
-    def predict(self, X):
-        return [1.23] * len(X)
-
-
+# ----------------------------
+# API Client fixture
+# ----------------------------
 @pytest.fixture()
-def api_client(tmp_path, monkeypatch):
-    from src.api import main as api_main
+def api_client(monkeypatch, tmp_path):
+    # dummy lifespan as async context manager
+    @asynccontextmanager
+    async def dummy_lifespan(app):
+        # Hardcode model path & dummy model
+        api_main.model_path = Path("data/06_models/production_model.pkl")
+        api_main.model = DummyModel()
+        api_main.model_type = "sklearn"
+        api_main.required_columns[:] = [
+            "required_age",
+            "price",
+            "dlc_count",
+            "windows",
+            "mac",
+            "linux",
+            "metacritic_score",
+            "achievements",
+            "discount",
+            "release_year",
+            "release_month",
+        ]
 
-    db_path = tmp_path / "predictions_test.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
+        # Setup fake DB
+        db_path = tmp_path / "predictions_test.db"
+        api_main.database = Database(f"sqlite+aiosqlite:///{db_path}")
+        await api_main.database.connect()
+        await api_main.init_db()
+        try:
+            yield
+        finally:
+            await api_main.database.disconnect()
 
-    api_main.database = Database(db_url)
+    # patch the lifespan
+    monkeypatch.setattr(api_main, "lifespan", dummy_lifespan)
+    api_main.app.router.lifespan_context = lambda app: dummy_lifespan(app)
 
-    api_main.model = DummyModel()
-
-    api_main.required_columns[:] = [
-        "required_age",
-        "price",
-        "dlc_count",
-        "windows",
-        "mac",
-        "linux",
-        "metacritic_score",
-        "achievements",
-        "discount",
-        "release_year",
-        "release_month",
-    ]
-
+    # return TestClient
     with TestClient(api_main.app) as client:
-        yield client, db_path, api_main
+        yield client, tmp_path / "predictions_test.db", api_main
 
 
+# ----------------------------
+# Count predictions fixture
+# ----------------------------
 @pytest.fixture()
 def count_predictions():
     return _count_rows_sqlite

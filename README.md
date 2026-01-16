@@ -151,7 +151,10 @@ Healthcheck:
 ```
 curl http://localhost:8000/healthz
 ```
-
+chceck baza danych:
+```
+ docker exec -it ml_db psql -U app -d appdb -c "select * from predictions limit 5;"
+```
 ---
 
 # **API (FastAPI)**

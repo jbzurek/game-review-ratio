@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
     DATABASE_URL: str = "sqlite+aiosqlite:///./predictions.db"
     MODEL_VERSION: str | None = None
+    API_URL: str | None = None
+    WANDB_API_KEY: str | None = None
 
     class Config:
         env_file = ".env"
