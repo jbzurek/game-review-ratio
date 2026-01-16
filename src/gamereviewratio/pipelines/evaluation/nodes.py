@@ -328,8 +328,7 @@ def train_autogluon(
     train_time_s = time.time() - start
 
     pkl_path = Path("data/06_models/ag_model.pkl")
-    pkl_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(predictor, pkl_path)
+
 
     try:
         wandb.log({"train_time_s": train_time_s})
@@ -407,17 +406,28 @@ def choose_best_model(ag_metrics: dict, baseline_metrics: dict) -> str:
 # zapisuje lepszy model jako production_model.pkl
 def save_production_model(best_model_name: str) -> str:
     if best_model_name == "ag_model":
-        src = Path("data/06_models/ag_model.pkl")
+        src = Path("data/06_models/AutogluonModels")
+        dst = Path("data/06_models/production_model")
+
+        if dst.exists():
+            import shutil
+            shutil.rmtree(dst)
+
+        import shutil
+        shutil.copytree(src, dst)
+
+        return str(dst)
+
     elif best_model_name == "baseline_model":
         src = Path("data/06_models/baseline_model.pkl")
+        dst = Path("data/06_models/production_model.pkl")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        copyfile(src, dst)
+        return str(dst)
+
     else:
         raise ValueError(f"nieznana nazwa najlepszego modelu: {best_model_name!r}")
 
-    dst = Path("data/06_models/production_model.pkl")
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    copyfile(src, dst)
-
-    return str(dst)
 
 
 # publikuje produkcyjny model do W&B jako artifact z aliasem "production"

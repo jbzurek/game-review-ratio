@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile.api
     environment:
       DATABASE_URL: postgresql+asyncpg://app:app@db:5432/appdb
-      MODEL_PATH: /app/data/06_models/production_model.pkl
+      MODEL_PATH: /app/data/06_models/production_model
       REQUIRED_COLUMNS_PATH: /app/data/06_models/required_columns.json
     depends_on:
       db:

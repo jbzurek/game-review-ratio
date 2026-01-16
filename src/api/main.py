@@ -15,21 +15,19 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
+# AutoGluon import (tylko jeśli model jest katalogiem)
+from autogluon.tabular import TabularPredictor
+
+
+# =========================
+# Settings
+# =========================
 
 class Settings(BaseSettings):
-    # ścieżka do modelu
-    MODEL_PATH: str = "data/06_models/production_model.pkl"
-
-    # ścieżka do wymaganych kolumn
+    MODEL_PATH: str = "data/06_models/production_model"
     REQUIRED_COLUMNS_PATH: str = "data/06_models/required_columns.json"
-
-    # url do bazy danych (docker compose: postgresql+asyncpg://app:app@db:5432/appdb)
-    # sqlite dla lokalnych testów: sqlite+aiosqlite:///./predictions.db
     DATABASE_URL: str = "sqlite+aiosqlite:///./predictions.db"
-
     MODEL_VERSION: str | None = None
-
-    WANDB_API_KEY: str | None = None
 
     class Config:
         env_file = ".env"
@@ -37,15 +35,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
 database = Database(settings.DATABASE_URL)
 
 model: Any | None = None
+model_type: str | None = None   # "autogluon" | "sklearn"
 required_columns: list[str] = []
 
 
+# =========================
+# Utils
+# =========================
+
 def _file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
-    # liczy sha256 pliku
     h = hashlib.sha256()
     with open(path, "rb") as f:
         while True:
@@ -57,13 +58,15 @@ def _file_sha256(path: str, chunk_size: int = 1024 * 1024) -> str:
 
 
 def _resolve_model_version() -> str:
-    # bierze wersję z env albo liczy z pliku
     if settings.MODEL_VERSION:
         return settings.MODEL_VERSION
-    if os.path.isfile(settings.MODEL_PATH):
-        digest = _file_sha256(settings.MODEL_PATH)[:12]
-        name = Path(settings.MODEL_PATH).name
-        return f"{name}:{digest}"
+
+    p = Path(settings.MODEL_PATH)
+    if p.is_file():
+        return f"{p.name}:{_file_sha256(str(p))[:12]}"
+    if p.is_dir():
+        return f"{p.name}:{_file_sha256(str(p / 'learner.pkl'))[:12]}"
+
     return "unknown"
 
 
@@ -71,25 +74,23 @@ MODEL_VERSION = _resolve_model_version()
 
 
 def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
-    # buduje wiersz cech zgodny z required_columns.json
     if not required_columns:
         raise RuntimeError("required_columns nie zostały załadowane")
 
     row = pd.DataFrame([{c: 0.0 for c in required_columns}], dtype=float)
 
-    # cechy numeryczne/binarne
     base = {
-        "required_age": float(int(req.required_age)),
+        "required_age": float(req.required_age),
         "price": float(req.price),
-        "dlc_count": float(int(req.dlc_count)),
-        "windows": float(int(bool(req.windows))),
-        "mac": float(int(bool(req.mac))),
-        "linux": float(int(bool(req.linux))),
-        "metacritic_score": float(int(req.metacritic_score)),
-        "achievements": float(int(req.achievements)),
-        "discount": float(int(req.discount)),
-        "release_year": float(int(req.release_year)),
-        "release_month": float(int(req.release_month)),
+        "dlc_count": float(req.dlc_count),
+        "windows": float(req.windows),
+        "mac": float(req.mac),
+        "linux": float(req.linux),
+        "metacritic_score": float(req.metacritic_score),
+        "achievements": float(req.achievements),
+        "discount": float(req.discount),
+        "release_year": float(req.release_year),
+        "release_month": float(req.release_month),
     }
 
     for k, v in base.items():
@@ -102,7 +103,6 @@ def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
             if col in row.columns:
                 row.at[0, col] = 1.0
 
-    # mlb / onehot-like kolumny
     set_mlb("genres", req.genres)
     set_mlb("categories", req.categories)
     set_mlb("tags", req.tags)
@@ -114,48 +114,61 @@ def _build_feature_row(req: "PredictRequest") -> pd.DataFrame:
     return row
 
 
+# =========================
+# Schemas
+# =========================
+
 class PredictRequest(BaseModel):
-    required_age: int = Field(default=0, ge=0, le=99)
-    price: float = Field(default=19.99, ge=0.0)
-    dlc_count: int = Field(default=0, ge=0)
+    required_age: int = Field(0, ge=0, le=99)
+    price: float = Field(19.99, ge=0.0)
+    dlc_count: int = Field(0, ge=0)
 
     windows: bool = True
     mac: bool = False
     linux: bool = False
 
-    metacritic_score: int = Field(default=0, ge=0, le=100)
-    achievements: int = Field(default=0, ge=0)
-    discount: int = Field(default=0, ge=0, le=100)
+    metacritic_score: int = Field(0, ge=0, le=100)
+    achievements: int = Field(0, ge=0)
+    discount: int = Field(0, ge=0, le=100)
 
-    release_year: int = Field(default=2024, ge=1990, le=2035)
-    release_month: int = Field(default=6, ge=1, le=12)
+    release_year: int = Field(2024, ge=1990, le=2035)
+    release_month: int = Field(6, ge=1, le=12)
 
-    genres: List[str] = Field(default_factory=list)
-    categories: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
-    developers: List[str] = Field(default_factory=list)
-    publishers: List[str] = Field(default_factory=list)
-    supported_languages: List[str] = Field(default_factory=list)
-    full_audio_languages: List[str] = Field(default_factory=list)
+    genres: List[str] = []
+    categories: List[str] = []
+    tags: List[str] = []
+    developers: List[str] = []
+    publishers: List[str] = []
+    supported_languages: List[str] = []
+    full_audio_languages: List[str] = []
 
 
 class Prediction(BaseModel):
-    # zwraca predykcję i wersję modelu
     prediction: float
     model_version: str
 
 
+# =========================
+# Lifespan
+# =========================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model, required_columns
+    global model, model_type, required_columns
 
-    # ładuje model raz
-    if model is None:
-        if not os.path.isfile(settings.MODEL_PATH):
-            raise RuntimeError(f"nie znaleziono pliku modelu w '{settings.MODEL_PATH}'")
-        model = joblib.load(settings.MODEL_PATH)
+    model_path = Path(settings.MODEL_PATH)
 
-    # wczytuje wymagane kolumny
+    # ---- load model ----
+    if model_path.is_dir():
+        model = TabularPredictor.load(str(model_path))
+        model_type = "autogluon"
+    elif model_path.is_file():
+        model = joblib.load(model_path)
+        model_type = "sklearn"
+    else:
+        raise RuntimeError(f"nie znaleziono modelu w '{settings.MODEL_PATH}'")
+
+    # ---- required columns ----
     if not os.path.isfile(settings.REQUIRED_COLUMNS_PATH):
         raise RuntimeError(
             f"nie znaleziono required_columns w '{settings.REQUIRED_COLUMNS_PATH}'"
@@ -163,10 +176,11 @@ async def lifespan(app: FastAPI):
 
     with open(settings.REQUIRED_COLUMNS_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
-        cols = data["columns"] if isinstance(data, dict) and "columns" in data else data
-        required_columns[:] = list(cols)
+        required_columns[:] = (
+            data["columns"] if isinstance(data, dict) else list(data)
+        )
 
-    # odpala db + tworzy tabelę
+    # ---- database ----
     await database.connect()
     await init_db()
 
@@ -179,9 +193,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+# =========================
+# Endpoints
+# =========================
+
 @app.get("/healthz")
 async def healthz():
-    return {"status": "ok"}
+    return {"status": "ok", "model_type": model_type}
 
 
 @app.get("/version")
@@ -194,70 +212,90 @@ async def predict(payload: PredictRequest):
     if model is None:
         raise HTTPException(status_code=500, detail="model nie został załadowany")
 
-    # buduje dataframe pod model
     try:
         x = _build_feature_row(payload)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"nie udało się zbudować cech: {e}")
+        raise HTTPException(status_code=500, detail=f"feature build failed: {e}")
 
     try:
-        pred = model.predict(x)[0]
-        pred_out = float(pred)
+        if model_type == "autogluon":
+            pred = model.predict(x)
+            pred_out = float(pred.iloc[0])
+        else:
+            pred = model.predict(x)
+            pred_out = float(pred[0])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"inferencja nie powiodła się: {e}")
 
     try:
-        await save_prediction(payload.model_dump(), pred_out, MODEL_VERSION)
+        await save_prediction(payload.model_dump(), pred_out, MODEL_VERSION, database)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"db write failed: {e}")
 
     return Prediction(prediction=pred_out, model_version=MODEL_VERSION)
 
 
+# =========================
+# DB helpers
+# =========================
+
 async def init_db():
     backend = database.url.scheme
 
     if backend.startswith("sqlite"):
         query = """
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ts TEXT,
-                payload TEXT,
-                prediction REAL,
-                model_version TEXT
-            )
+        CREATE TABLE IF NOT EXISTS predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT,
+            payload TEXT,
+            prediction REAL,
+            model_version TEXT
+        )
         """
     else:
         query = """
-            CREATE TABLE IF NOT EXISTS predictions (
-                id SERIAL PRIMARY KEY,
-                ts TIMESTAMP,
-                payload JSONB,
-                prediction DOUBLE PRECISION,
-                model_version TEXT
-            )
+        CREATE TABLE IF NOT EXISTS predictions (
+            id SERIAL PRIMARY KEY,
+            ts TIMESTAMP,
+            payload JSONB,
+            prediction DOUBLE PRECISION,
+            model_version TEXT
+        )
         """
 
     await database.execute(query=query)
 
 
-async def save_prediction(payload: dict, prediction: float, model_version: str):
+async def save_prediction(payload: dict, prediction: float, model_version: str, database: Database):
+    """
+    Zapisuje predykcję do bazy danych.
+    Działa dla SQLite (TEXT) i PostgreSQL (JSONB).
+    """
     backend = database.url.scheme
     is_sqlite = backend.startswith("sqlite")
 
     ts_value = dt.datetime.utcnow().isoformat() if is_sqlite else dt.datetime.utcnow()
-    payload_value = json.dumps(payload, ensure_ascii=False) if is_sqlite else payload
 
-    query = """
-        INSERT INTO predictions(ts, payload, prediction, model_version)
-        VALUES (:ts, :payload, :pred, :ver)
-    """
+    # Zawsze serializujemy do JSON string
+    payload_json = json.dumps(payload, ensure_ascii=False)
+
+    if is_sqlite:
+        query = """
+            INSERT INTO predictions(ts, payload, prediction, model_version)
+            VALUES (:ts, :payload, :pred, :ver)
+        """
+    else:
+        # PostgreSQL: używamy CAST na JSONB
+        query = """
+            INSERT INTO predictions(ts, payload, prediction, model_version)
+            VALUES (:ts, CAST(:payload AS JSONB), :pred, :ver)
+        """
 
     await database.execute(
         query=query,
         values={
             "ts": ts_value,
-            "payload": payload_value,
+            "payload": payload_json,
             "pred": float(prediction),
             "ver": model_version,
         },
